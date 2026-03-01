@@ -5,15 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>May Framework — AI Chief of Staff Architecture</title>
 <meta name="description" content="A replicable architecture for building an AI Chief of Staff on Claude Code. File-based memory, autonomous missions, multi-agent coordination.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='10' y='10' width='44' height='44' rx='2' transform='rotate(45 32 32)' fill='%23D4845A'/><rect x='12' y='12' width='40' height='40' rx='2' fill='%231E2640'/><circle cx='32' cy='32' r='5' fill='%23D4845A'/></svg>">
 <style>
   :root {
-    --navy: #19223F;
-    --navy-dark: #111829;
-    --navy-mid: #1e2a4a;
-    --gold: #C99E50;
-    --gold-light: #e0b96a;
+    --navy: #1E2640;
+    --navy-dark: #151C30;
+    --navy-mid: #243050;
+    --copper: #D4845A;
+    --copper-light: #E09A74;
     --white: #F0F0F0;
-    --muted: #9aabbf;
+    --muted: #8FB3CC;
     --code-bg: #0e1525;
     --border: #2d3f5e;
     --sidebar-w: 260px;
@@ -50,7 +51,7 @@
   .sidebar-header .logo {
     font-size: 20px;
     font-weight: 700;
-    color: var(--gold);
+    color: var(--copper);
     letter-spacing: 0.02em;
   }
 
@@ -88,8 +89,8 @@
 
   nav a:hover, nav a.active {
     opacity: 1;
-    color: var(--gold);
-    border-left-color: var(--gold);
+    color: var(--copper);
+    border-left-color: var(--copper);
     background: rgba(201,158,80,0.06);
   }
 
@@ -100,7 +101,7 @@
     color: var(--muted);
   }
 
-  .sidebar-footer a { color: var(--gold); text-decoration: none; }
+  .sidebar-footer a { color: var(--copper); text-decoration: none; }
 
   /* ─── MAIN CONTENT ─────────────────────────────────────── */
   main {
@@ -116,7 +117,7 @@
     z-index: 200;
     background: var(--navy-dark);
     border: 1px solid var(--border);
-    color: var(--gold);
+    color: var(--copper);
     width: 40px; height: 40px;
     border-radius: 6px;
     font-size: 18px;
@@ -140,7 +141,7 @@
     margin-bottom: 16px;
   }
 
-  .hero h1 span { color: var(--gold); }
+  .hero h1 span { color: var(--copper); }
 
   .hero .subtitle {
     font-size: 18px;
@@ -159,7 +160,7 @@
   .badge {
     background: rgba(201,158,80,0.12);
     border: 1px solid rgba(201,158,80,0.3);
-    color: var(--gold);
+    color: var(--copper);
     padding: 5px 12px;
     border-radius: 20px;
     font-size: 12px;
@@ -178,7 +179,7 @@
   h2 {
     font-size: 28px;
     font-weight: 700;
-    color: var(--gold);
+    color: var(--copper);
     margin-bottom: 8px;
     padding-top: 4px;
   }
@@ -188,7 +189,7 @@
     color: var(--muted);
     margin-bottom: 32px;
     max-width: 700px;
-    border-left: 2px solid var(--gold);
+    border-left: 2px solid var(--copper);
     padding-left: 14px;
   }
 
@@ -204,7 +205,7 @@
   h4 {
     font-size: 14px;
     font-weight: 600;
-    color: var(--gold-light);
+    color: var(--copper-light);
     text-transform: uppercase;
     letter-spacing: 0.06em;
     margin: 24px 0 8px;
@@ -232,7 +233,7 @@
     border: 1px solid var(--border);
     padding: 1px 6px;
     border-radius: 3px;
-    color: var(--gold-light);
+    color: var(--copper-light);
   }
 
   pre {
@@ -255,7 +256,7 @@
   }
 
   pre .comment { color: #6e7681; }
-  pre .key { color: var(--gold-light); }
+  pre .key { color: var(--copper-light); }
   pre .str { color: #a5d6ff; }
   pre .kw { color: #d2a8ff; }
 
@@ -271,7 +272,7 @@
 
   th {
     background: var(--navy-dark);
-    color: var(--gold);
+    color: var(--copper);
     text-align: left;
     padding: 10px 14px;
     font-size: 12px;
@@ -293,7 +294,7 @@
   .callout {
     background: rgba(201,158,80,0.08);
     border: 1px solid rgba(201,158,80,0.25);
-    border-left: 3px solid var(--gold);
+    border-left: 3px solid var(--copper);
     border-radius: 6px;
     padding: 16px 20px;
     margin: 20px 0;
@@ -313,7 +314,7 @@
     border-left-color: #f0a020;
   }
 
-  .callout strong { display: block; margin-bottom: 6px; color: var(--gold); }
+  .callout strong { display: block; margin-bottom: 6px; color: var(--copper); }
   .callout.info strong { color: #7aa8ff; }
   .callout.warn strong { color: #f0b030; }
 
@@ -350,7 +351,7 @@
     left: 16px;
     top: 16px;
     width: 26px; height: 26px;
-    background: var(--gold);
+    background: var(--copper);
     color: var(--navy-dark);
     border-radius: 50%;
     font-size: 13px;
@@ -381,14 +382,14 @@
   }
 
   .link-card:hover {
-    border-color: var(--gold);
+    border-color: var(--copper);
     background: rgba(201,158,80,0.06);
   }
 
   .link-card .link-title {
     font-size: 14px;
     font-weight: 600;
-    color: var(--gold);
+    color: var(--copper);
     margin-bottom: 4px;
   }
 
@@ -431,7 +432,7 @@
 <!-- Sidebar -->
 <aside id="sidebar">
   <div class="sidebar-header">
-    <div class="logo">May Framework</div>
+    <div class="logo"><svg viewBox="0 0 64 64" width="22" height="22" style="vertical-align: -3px; margin-right: 6px;"><rect x="10" y="10" width="44" height="44" rx="2" transform="rotate(45 32 32)" fill="#D4845A"/><rect x="12" y="12" width="40" height="40" rx="2" fill="#1E2640"/><circle cx="32" cy="32" r="5" fill="#D4845A"/></svg>May Framework</div>
     <div class="tagline">AI Chief of Staff Architecture</div>
   </div>
   <nav>
@@ -1247,6 +1248,42 @@ curl -X POST "https://[your-domain]/api/push-notify" \
   -H "Content-Type: application/json" \
   -d "{\"title\":\"May\",\"body\":\"New message\"}"</code></pre>
 
+    <h3>Two-Phase Email Architecture</h3>
+    <p>When the operator sends a message (via PWA or email), the system uses a two-phase approach to guarantee fast replies while allowing complex work to run without timeouts:</p>
+    <pre><code># Phase 1: TRIAGE (90s timeout, 10 turns)
+# Classifies message, handles simple ones inline, acks complex ones
+
+responder polls inbox → spawns Claude TRIAGE session
+  → SIMPLE_QUESTION / DECISION / STATUS / QUICK_TASK → handle + reply immediately
+  → MISSION_SCOPE / COMPLEX_TASK → send ack + write handoff JSON
+
+# Phase 2: EXECUTION (30min timeout, 60 turns)
+# Picks up handoff files, runs full Claude session with context
+
+processor polls handoffs/ → spawns Claude EXECUTION session
+  → reads context files (SOUL.md, MEMORY.md, DAILY.md)
+  → does the heavy work (scope mission, execute task, research)
+  → sends final reply when done</code></pre>
+    <p>The handoff JSON file bridges the two phases:</p>
+    <pre><code>{
+  "id": "handoff-20260301-143022",
+  "status": "pending",          // pending → in_progress → complete/failed
+  "msg_id": 82,
+  "source_channel": "pwa",
+  "classification": "MISSION_SCOPE",
+  "message_body": "Original message text",
+  "ack_sent": true,
+  "instructions": "Triage assessment of what needs to be done"
+}</code></pre>
+    <p>Key design decisions:</p>
+    <ul>
+      <li><strong>Operator always gets a response</strong> within ~30 seconds, even for complex requests</li>
+      <li><strong>Fallback guarantee:</strong> if even the triage times out, a generic ack is auto-sent and a handoff is auto-written</li>
+      <li><strong>Stale recovery:</strong> the processor detects dead PIDs on in-progress handoffs and reclaims them</li>
+      <li><strong>Failure notification:</strong> if the execution phase fails, a message is sent via PWA so the operator knows</li>
+      <li><strong>Both phases run as LaunchAgents</strong> (macOS) — responder polls every 60s, processor polls every 30s</li>
+    </ul>
+
     <h3>The May PWA</h3>
     <p>A progressive web app that serves as the primary async communication channel between operator and AI chief of staff.</p>
     <div class="table-wrap">
@@ -1470,7 +1507,7 @@ Confirm: [list]
 
     <h3>Prerequisites</h3>
     <ul>
-      <li><strong>Claude Code CLI:</strong> Install from <a href="https://claude.ai/code" style="color:var(--gold)">claude.ai/code</a>. Active subscription required (Max plan recommended for heavy use).</li>
+      <li><strong>Claude Code CLI:</strong> Install from <a href="https://claude.ai/code" style="color:var(--copper)">claude.ai/code</a>. Active subscription required (Max plan recommended for heavy use).</li>
       <li><strong>GitHub account:</strong> Free tier works. Repos can be private.</li>
       <li><strong>Cloudflare account:</strong> Free tier works for Workers, Pages, D1, R2.</li>
       <li><strong>Basic familiarity with:</strong> git, bash scripting, JSON. You don't need to be a developer — the AI writes the code.</li>
