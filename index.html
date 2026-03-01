@@ -1,0 +1,1667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>May Framework — AI Chief of Staff Architecture</title>
+<meta name="description" content="A replicable architecture for building an AI Chief of Staff on Claude Code. File-based memory, autonomous missions, multi-agent coordination.">
+<style>
+  :root {
+    --navy: #19223F;
+    --navy-dark: #111829;
+    --navy-mid: #1e2a4a;
+    --gold: #C99E50;
+    --gold-light: #e0b96a;
+    --white: #F0F0F0;
+    --muted: #9aabbf;
+    --code-bg: #0e1525;
+    --border: #2d3f5e;
+    --sidebar-w: 260px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--navy);
+    color: var(--white);
+    line-height: 1.7;
+  }
+
+  /* ─── SIDEBAR ─────────────────────────────────────────── */
+  #sidebar {
+    position: fixed;
+    top: 0; left: 0;
+    width: var(--sidebar-w);
+    height: 100vh;
+    background: var(--navy-dark);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sidebar-header {
+    padding: 24px 20px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-header .logo {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--gold);
+    letter-spacing: 0.02em;
+  }
+
+  .sidebar-header .tagline {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  nav {
+    padding: 12px 0;
+    flex: 1;
+  }
+
+  nav .section-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    padding: 12px 20px 4px;
+  }
+
+  nav a {
+    display: block;
+    padding: 7px 20px;
+    color: var(--white);
+    text-decoration: none;
+    font-size: 13.5px;
+    opacity: 0.8;
+    transition: all 0.15s;
+    border-left: 2px solid transparent;
+  }
+
+  nav a:hover, nav a.active {
+    opacity: 1;
+    color: var(--gold);
+    border-left-color: var(--gold);
+    background: rgba(201,158,80,0.06);
+  }
+
+  .sidebar-footer {
+    padding: 16px 20px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .sidebar-footer a { color: var(--gold); text-decoration: none; }
+
+  /* ─── MAIN CONTENT ─────────────────────────────────────── */
+  main {
+    margin-left: var(--sidebar-w);
+    min-height: 100vh;
+  }
+
+  /* ─── MOBILE TOGGLE ────────────────────────────────────── */
+  #nav-toggle {
+    display: none;
+    position: fixed;
+    top: 12px; left: 12px;
+    z-index: 200;
+    background: var(--navy-dark);
+    border: 1px solid var(--border);
+    color: var(--gold);
+    width: 40px; height: 40px;
+    border-radius: 6px;
+    font-size: 18px;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* ─── HERO ──────────────────────────────────────────────── */
+  .hero {
+    background: linear-gradient(135deg, var(--navy-dark) 0%, var(--navy-mid) 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 64px 60px 56px;
+  }
+
+  .hero h1 {
+    font-size: 40px;
+    font-weight: 800;
+    color: var(--white);
+    line-height: 1.15;
+    margin-bottom: 16px;
+  }
+
+  .hero h1 span { color: var(--gold); }
+
+  .hero .subtitle {
+    font-size: 18px;
+    color: var(--muted);
+    max-width: 640px;
+    line-height: 1.6;
+  }
+
+  .hero-badges {
+    display: flex;
+    gap: 10px;
+    margin-top: 28px;
+    flex-wrap: wrap;
+  }
+
+  .badge {
+    background: rgba(201,158,80,0.12);
+    border: 1px solid rgba(201,158,80,0.3);
+    color: var(--gold);
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+  }
+
+  /* ─── SECTIONS ──────────────────────────────────────────── */
+  section {
+    padding: 56px 60px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  section:last-child { border-bottom: none; }
+
+  h2 {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--gold);
+    margin-bottom: 8px;
+    padding-top: 4px;
+  }
+
+  .section-intro {
+    font-size: 15px;
+    color: var(--muted);
+    margin-bottom: 32px;
+    max-width: 700px;
+    border-left: 2px solid var(--gold);
+    padding-left: 14px;
+  }
+
+  h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--white);
+    margin: 32px 0 12px;
+  }
+
+  h3:first-of-type { margin-top: 0; }
+
+  h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--gold-light);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 24px 0 8px;
+  }
+
+  p { margin-bottom: 14px; max-width: 760px; }
+  p:last-child { margin-bottom: 0; }
+
+  ul, ol {
+    padding-left: 20px;
+    margin-bottom: 14px;
+    max-width: 760px;
+  }
+
+  li { margin-bottom: 6px; }
+  li:last-child { margin-bottom: 0; }
+
+  strong { color: var(--white); font-weight: 600; }
+
+  /* ─── CODE ──────────────────────────────────────────────── */
+  code {
+    font-family: 'SF Mono', 'Courier New', monospace;
+    font-size: 13px;
+    background: rgba(14,21,37,0.8);
+    border: 1px solid var(--border);
+    padding: 1px 6px;
+    border-radius: 3px;
+    color: var(--gold-light);
+  }
+
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    overflow-x: auto;
+    margin: 16px 0 24px;
+    max-width: 800px;
+  }
+
+  pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 13px;
+    color: #c9d1d9;
+    line-height: 1.6;
+  }
+
+  pre .comment { color: #6e7681; }
+  pre .key { color: var(--gold-light); }
+  pre .str { color: #a5d6ff; }
+  pre .kw { color: #d2a8ff; }
+
+  /* ─── TABLES ────────────────────────────────────────────── */
+  .table-wrap { overflow-x: auto; margin: 16px 0 24px; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    max-width: 900px;
+  }
+
+  th {
+    background: var(--navy-dark);
+    color: var(--gold);
+    text-align: left;
+    padding: 10px 14px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border-bottom: 1px solid var(--border);
+  }
+
+  td {
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(45,63,94,0.5);
+    vertical-align: top;
+  }
+
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(201,158,80,0.03); }
+
+  /* ─── CALLOUT BOXES ────────────────────────────────────── */
+  .callout {
+    background: rgba(201,158,80,0.08);
+    border: 1px solid rgba(201,158,80,0.25);
+    border-left: 3px solid var(--gold);
+    border-radius: 6px;
+    padding: 16px 20px;
+    margin: 20px 0;
+    max-width: 760px;
+    font-size: 14px;
+  }
+
+  .callout.info {
+    background: rgba(100,150,255,0.06);
+    border-color: rgba(100,150,255,0.3);
+    border-left-color: #5b8ef0;
+  }
+
+  .callout.warn {
+    background: rgba(255,180,50,0.06);
+    border-color: rgba(255,180,50,0.3);
+    border-left-color: #f0a020;
+  }
+
+  .callout strong { display: block; margin-bottom: 6px; color: var(--gold); }
+  .callout.info strong { color: #7aa8ff; }
+  .callout.warn strong { color: #f0b030; }
+
+  /* ─── DIAGRAM ────────────────────────────────────────────── */
+  .diagram {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    font-family: 'SF Mono', 'Courier New', monospace;
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: #c9d1d9;
+    overflow-x: auto;
+    max-width: 800px;
+    margin: 16px 0 24px;
+    white-space: pre;
+  }
+
+  /* ─── STEP LIST ──────────────────────────────────────────── */
+  .steps { counter-reset: step; list-style: none; padding: 0; max-width: 760px; }
+  .steps li {
+    counter-increment: step;
+    padding: 16px 16px 16px 56px;
+    position: relative;
+    margin-bottom: 12px;
+    background: rgba(25,34,63,0.5);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .steps li::before {
+    content: counter(step);
+    position: absolute;
+    left: 16px;
+    top: 16px;
+    width: 26px; height: 26px;
+    background: var(--gold);
+    color: var(--navy-dark);
+    border-radius: 50%;
+    font-size: 13px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .steps li strong { display: block; margin-bottom: 4px; }
+
+  /* ─── QUICK LINK GRID ───────────────────────────────────── */
+  .link-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+    margin: 24px 0;
+    max-width: 800px;
+  }
+
+  .link-card {
+    background: var(--navy-dark);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    text-decoration: none;
+    color: var(--white);
+    transition: all 0.2s;
+  }
+
+  .link-card:hover {
+    border-color: var(--gold);
+    background: rgba(201,158,80,0.06);
+  }
+
+  .link-card .link-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--gold);
+    margin-bottom: 4px;
+  }
+
+  .link-card .link-desc {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  /* ─── RESPONSIVE ────────────────────────────────────────── */
+  @media (max-width: 768px) {
+    #nav-toggle { display: flex; }
+
+    #sidebar {
+      transform: translateX(-100%);
+      transition: transform 0.25s;
+    }
+
+    #sidebar.open {
+      transform: translateX(0);
+      box-shadow: 4px 0 40px rgba(0,0,0,0.5);
+    }
+
+    main { margin-left: 0; }
+
+    .hero { padding: 60px 24px 40px; }
+    .hero h1 { font-size: 28px; }
+    .hero .subtitle { font-size: 15px; }
+
+    section { padding: 40px 24px; }
+
+    h2 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Mobile nav toggle -->
+<button id="nav-toggle" onclick="toggleNav()" aria-label="Toggle navigation">☰</button>
+
+<!-- Sidebar -->
+<aside id="sidebar">
+  <div class="sidebar-header">
+    <div class="logo">May Framework</div>
+    <div class="tagline">AI Chief of Staff Architecture</div>
+  </div>
+  <nav>
+    <div class="section-label">Sections</div>
+    <a href="#overview">Overview</a>
+    <a href="#architecture">Architecture</a>
+    <a href="#agents">Agents</a>
+    <a href="#missions">Missions</a>
+    <a href="#memory">Memory &amp; Cold Start</a>
+    <a href="#autonomy">Autonomy Model</a>
+    <a href="#tooling">Tooling</a>
+    <a href="#rule-sets">Rule Sets</a>
+    <a href="#getting-started">Getting Started</a>
+  </nav>
+  <div class="sidebar-footer">
+    <a href="https://github.com/krogsgard/may-framework" target="_blank">GitHub →</a>
+    &nbsp;·&nbsp; Built on Claude Code
+  </div>
+</aside>
+
+<!-- Main content -->
+<main>
+
+  <!-- HERO -->
+  <div class="hero">
+    <h1>The <span>May</span> Framework</h1>
+    <p class="subtitle">A replicable architecture for an AI Chief of Staff that survives cold starts, coordinates autonomous agents, and operates a real business — built entirely on Claude Code and open-source tooling.</p>
+    <div class="hero-badges">
+      <span class="badge">Claude Code</span>
+      <span class="badge">File-Based Memory</span>
+      <span class="badge">Autonomous Missions</span>
+      <span class="badge">Multi-Agent</span>
+      <span class="badge">GitHub Actions</span>
+      <span class="badge">Cloudflare</span>
+    </div>
+  </div>
+
+  <!-- OVERVIEW -->
+  <section id="overview">
+    <h2>Overview</h2>
+    <p class="section-intro">May is an AI chief of staff for a small business owner — built on Claude Code, managed through plain text files, and capable of autonomous execution via headless sessions called Missions.</p>
+
+    <h3>What problem does it solve?</h3>
+    <p>Claude Code sessions are ephemeral. Every session starts with a blank context window — no memory of yesterday, no awareness of active projects, no knowledge of decisions already made. But business operations are continuous. A chief of staff who forgets everything overnight isn't useful.</p>
+    <p>The May Framework solves this with a <strong>file-based memory architecture</strong>: structured markdown files and JSON that persist across sessions, a startup sequence that rebuilds full context on every cold start, and append-only logs that accumulate institutional knowledge over time.</p>
+
+    <h3>Core design principles</h3>
+    <ul>
+      <li><strong>Files are the brain.</strong> Everything May knows at startup comes from files. The files are the memory.</li>
+      <li><strong>Ephemeral sessions, persistent state.</strong> Sessions are temporary. The file system is permanent.</li>
+      <li><strong>One operator, full authority.</strong> Designed for a single owner-operator who wants autonomous AI execution, not committee review.</li>
+      <li><strong>Minimal infrastructure.</strong> Plain text, GitHub, Cloudflare free tier. No database servers, no message queues, no orchestration platforms.</li>
+      <li><strong>AI-parseable structure.</strong> Files are formatted for both human readability and AI ingestion. Headers enable section-by-section parsing.</li>
+    </ul>
+
+    <h3>The cold start sequence</h3>
+    <p>Every Claude Code session reads files in this order before delivering a brief:</p>
+    <div class="diagram">SOUL.md         ─── identity, operating principles, hard limits
+USER.md         ─── operator preferences, autonomy rules
+MEMORY.md       ─── active projects, open loops, long-term knowledge
+DAILY.md        ─── yesterday's context, today's priorities
+PLAYBOOK.md     ─── response patterns for common situations
+session.md      ─── last session's state (Scribe output)
+projects.md     ─── project lifecycle tracker
+decisions.md    ─── persistent decision log (never re-ask these)</div>
+
+    <p>After reading all files, May delivers:</p>
+    <ul>
+      <li><strong>Daily Brief</strong> — if today's date differs from DAILY.md header (first session of the day)</li>
+      <li><strong>Launch Brief</strong> — if same day (returning to an in-progress session)</li>
+    </ul>
+
+    <h3>The two-directory pattern</h3>
+    <div class="diagram">MayAI/              ← GitHub repo (versioned, CI-accessible)
+  SOUL.md
+  MEMORY.md
+  DAILY.md
+  missions/
+  scripts/
+  .github/workflows/
+
+may-system/         ← Local only (not in Git)
+  state/session.md
+  logs/sessions.md
+  logs/decisions.md
+  agents/*/heartbeat.json
+  broker/</div>
+
+    <p>The repo holds governance and mission specs. Local state holds operational data that changes every session. This keeps the repo clean while the runtime has immediate access to session state.</p>
+
+    <h3>Quick navigation</h3>
+    <div class="link-grid">
+      <a class="link-card" href="#architecture">
+        <div class="link-title">Architecture</div>
+        <div class="link-desc">File hierarchy, startup sequence, session continuity</div>
+      </a>
+      <a class="link-card" href="#agents">
+        <div class="link-title">Agents</div>
+        <div class="link-desc">May, Atlas, Vulcan, Sentinel, Scribe, Ledger</div>
+      </a>
+      <a class="link-card" href="#missions">
+        <div class="link-title">Missions</div>
+        <div class="link-desc">Autonomous headless execution, self-healing loop</div>
+      </a>
+      <a class="link-card" href="#memory">
+        <div class="link-title">Memory</div>
+        <div class="link-desc">Cold start protocol, file roles, Scribe</div>
+      </a>
+      <a class="link-card" href="#autonomy">
+        <div class="link-title">Autonomy</div>
+        <div class="link-desc">Permission model, auto-approve rules</div>
+      </a>
+      <a class="link-card" href="#tooling">
+        <div class="link-title">Tooling</div>
+        <div class="link-desc">Scripts, workflows, PWA, Monday.com MCP</div>
+      </a>
+      <a class="link-card" href="#rule-sets">
+        <div class="link-title">Rule Sets</div>
+        <div class="link-desc">SOUL, CLAUDE.md, PLAYBOOK patterns</div>
+      </a>
+      <a class="link-card" href="#getting-started">
+        <div class="link-title">Getting Started</div>
+        <div class="link-desc">Step-by-step replication guide</div>
+      </a>
+    </div>
+  </section>
+
+  <!-- ARCHITECTURE -->
+  <section id="architecture">
+    <h2>Architecture</h2>
+    <p class="section-intro">Two directories. One repo, one local state store. Plain text throughout. No servers to operate, no databases to manage beyond what Cloudflare's free tier handles.</p>
+
+    <h3>The repo directory (versioned)</h3>
+    <pre><code>MayAI/                          ← Git repo
+  CLAUDE.md                     ← Auto-read by Claude Code on startup
+  SOUL.md                       ← Identity and operating principles
+  USER.md                       ← Operator preferences
+  MEMORY.md                     ← Long-term knowledge index (≤200 lines)
+  DAILY.md                      ← Current day context, yesterday's summary
+  PLAYBOOK.md                   ← Situational response patterns
+
+  docs/
+    SYSTEM.md                   ← Full technical reference
+
+  missions/
+    _TEMPLATE.json              ← Mission spec format
+    MISSION-001/
+      mission.json              ← Objective, criteria, scope, budget
+      result.md                 ← Output from autonomous run
+      needs-brian.md            ← Blockers and workarounds
+
+  scripts/
+    run-mission.sh              ← Single mission launcher (local)
+    run-batch.sh                ← Batch launcher (default — unsets CLAUDECODE)
+    launch-mission.sh           ← CI fallback (commits + triggers Actions)
+    may-pwa-reply.sh            ← PWA reply + push notification trigger
+    may-inbox.sh                ← D1 inbox poller
+    screenshot.js               ← Puppeteer screenshot utility
+
+  .github/workflows/
+    mission.yml                 ← CI mission runner
+    sentinel.yml                ← Daily health checks (7:15 AM CT)</code></pre>
+
+    <h3>The local state directory (not in Git)</h3>
+    <pre><code>may-system/                     ← Local only
+  state/
+    session.md                  ← Current session state (Scribe writes here)
+    projects.md                 ← Project phases and milestones
+    pending-brief.md            ← Items queued for next brief
+
+  logs/
+    sessions.md                 ← Append-only session archive
+    decisions.md                ← Persistent decision log
+    daily-archive.md            ← Daily summaries archive
+    missions/                   ← Mission execution logs
+
+  agents/
+    may/
+      heartbeat.json            ← Last active, session count, summary
+    atlas/
+      heartbeat.json
+      prompt.md                 ← Agent prompt/instructions
+      config.json               ← Thresholds, board IDs, config
+    vulcan/heartbeat.json
+    ledger/heartbeat.json
+    sentinel/heartbeat.json
+    scribe/
+      prompt.md
+      config.json
+
+  broker/
+    tasks/                      ← (Retired — missions replaced this)
+    results/                    ← Sentinel output, scan results
+    drafts/                     ← Items queued for operator approval</code></pre>
+
+    <h3>Why this separation?</h3>
+    <p>The repo is CI-accessible — GitHub Actions can read it to run missions. It holds everything that benefits from version control: governance files, mission specs, scripts, workflows. The local state changes every session and doesn't belong in version control — it would create constant noise and expose sensitive operational data.</p>
+
+    <h3>The startup sequence</h3>
+    <div class="callout">
+      <strong>CLAUDE.md is the entry point.</strong>
+      Claude Code reads CLAUDE.md automatically when launched in the repo directory. CLAUDE.md contains the startup sequence — the ordered list of files to read and actions to take before delivering a brief.
+    </div>
+
+    <p>The startup sequence runs every session, no exceptions:</p>
+    <ol>
+      <li><strong>Sync:</strong> <code>git pull origin main</code> in the repo — Sentinel and mission runners push results via CI, so local may be stale</li>
+      <li><strong>Read pending-brief.md</strong> — local mission runners append here on completion</li>
+      <li><strong>Read sentinel-latest.json</strong> — Sentinel CI writes here daily; contains recent deploys and health status</li>
+      <li><strong>Scan missions/*/mission.json</strong> for any with status "pending" that have a result.md — these completed but weren't tracked; fix status to "complete"</li>
+      <li><strong>Read result.md and needs-brian.md</strong> for any newly completed missions</li>
+      <li><strong>Deliver brief</strong> (Daily or Launch based on date comparison)</li>
+    </ol>
+
+    <h3>Brief types</h3>
+    <div class="table-wrap">
+      <table>
+        <tr>
+          <th>Brief Type</th>
+          <th>Trigger</th>
+          <th>Contents</th>
+          <th>Length</th>
+        </tr>
+        <tr>
+          <td><strong>Daily Brief</strong></td>
+          <td>Today's date ≠ DAILY.md header date</td>
+          <td>Top 3 priorities, agent health, Sentinel status, mission results, Regrid usage, open loops, project statuses</td>
+          <td>Under 200 words</td>
+        </tr>
+        <tr>
+          <td><strong>Launch Brief</strong></td>
+          <td>Same date as DAILY.md (returning session)</td>
+          <td>Where we left off, any completed missions, urgent alerts only</td>
+          <td>3–5 lines, under 60 words</td>
+        </tr>
+      </table>
+    </div>
+
+    <h3>Memory architecture</h3>
+    <p>MEMORY.md is auto-loaded into every conversation context but truncates at 200 lines. To stay under this limit, detailed knowledge lives in topic files that MEMORY.md indexes:</p>
+    <pre><code>memory/
+  MEMORY.md        ← Index + high-level facts (≤200 lines, auto-loaded)
+  brand.md         ← Colors, typography, logos
+  job-map.md       ← Map tool specifics
+  customer-portal.md ← Auth, API details
+  regrid-api.md    ← External API docs, limits, tokens
+  pwa.md           ← PWA technical reference
+  email-system.md  ← Email infrastructure docs</code></pre>
+
+    <p>Write pattern: When a topic grows beyond a paragraph in MEMORY.md, extract it to a topic file and replace the MEMORY.md section with a one-line reference: <code>See [topic.md] — full details there.</code></p>
+  </section>
+
+  <!-- AGENTS -->
+  <section id="agents">
+    <h2>Agents</h2>
+    <p class="section-intro">Six agents coordinate the system. Most run inline during sessions rather than as standalone processes. The chief of staff (May) is the only agent that runs interactively.</p>
+
+    <h3>Agent roster</h3>
+    <div class="table-wrap">
+      <table>
+        <tr>
+          <th>Agent</th>
+          <th>Role</th>
+          <th>How It Runs</th>
+          <th>Status</th>
+        </tr>
+        <tr>
+          <td><strong>May</strong></td>
+          <td>Chief of Staff — coordinates all agents, writes code, manages projects, delivers briefs</td>
+          <td>Interactive Claude Code sessions (operator present)</td>
+          <td>Active (daily)</td>
+        </tr>
+        <tr>
+          <td><strong>Atlas</strong></td>
+          <td>Monday.com monitor — AR pipeline tracking, overdue detection, repeat offenders</td>
+          <td>Inline during May sessions via Monday.com MCP</td>
+          <td>Active + Calibrated</td>
+        </tr>
+        <tr>
+          <td><strong>Vulcan</strong></td>
+          <td>Code agent — builds, deploys, automates; executes all Missions</td>
+          <td>Direct code work by May; Mission runner for autonomous tasks</td>
+          <td>Active</td>
+        </tr>
+        <tr>
+          <td><strong>Ledger</strong></td>
+          <td>Financial analysis — AR dollar amounts, P&amp;L, real estate numbers</td>
+          <td>Inline during sessions (future: standalone)</td>
+          <td>Defined, waiting</td>
+        </tr>
+        <tr>
+          <td><strong>Sentinel</strong></td>
+          <td>Verification — HTTP health checks, API status, token expiry alerts</td>
+          <td>GitHub Actions cron (daily 7:15 AM CT); commits results back to repo</td>
+          <td>Deployed</td>
+        </tr>
+        <tr>
+          <td><strong>Scribe</strong></td>
+          <td>Session state — tracks goals, commits, decisions; writes resumable context for next session</td>
+          <td>Inline protocol May executes at session open/close boundaries</td>
+          <td>Active every session</td>
+        </tr>
+      </table>
+    </div>
+
+    <h3>Agent communication model</h3>
+    <p>Agents don't talk to each other directly. There's no message bus, no API, no pub/sub. The communication model is purely file-based:</p>
+    <ul>
+      <li>May writes a task JSON to <code>broker/tasks/</code></li>
+      <li>Agent executes (when next triggered) and writes result JSON to <code>broker/results/</code></li>
+      <li>May reads result on next startup</li>
+    </ul>
+    <p>In practice, Atlas and Vulcan work is done directly by May during interactive sessions. The broker pattern exists for future standalone execution (scheduled GitHub Actions, cron triggers).</p>
+
+    <div class="callout">
+      <strong>Important constraint:</strong> May never steers a subagent mid-session. She can add tasks to the broker queue for the next trigger. She cannot interrupt or redirect an agent that's already running.
+    </div>
+
+    <h3>Inline protocol vs. standalone agent</h3>
+    <p><strong>Inline protocol</strong> (Scribe): May executes this herself at specific trigger points — session open, after commits, after goal completions, session close. No separate process, no scheduling. It's a protocol baked into May's behavior.</p>
+    <p><strong>Standalone agent</strong> (Sentinel): Runs independently on a schedule via GitHub Actions. Doesn't require May to be present. Results are committed back to the repo and read at the next session's Brief Startup.</p>
+
+    <h3>Sentinel output format</h3>
+    <p>Sentinel writes to <code>broker/results/sentinel-latest.json</code>. May reads this at every Brief Startup:</p>
+    <pre><code>{
+  "last_run": "2026-03-01T07:15:00Z",
+  "overall_status": "green",
+  "apps": [
+    { "name": "Intranet", "url": "[your-domain]", "status": "green" },
+    { "name": "Customer Portal", "url": "portal.[your-domain]", "status": "green" }
+  ],
+  "tokens": [
+    { "name": "Regrid JWT", "expires": "2027-02-15", "days_left": 351 }
+  ],
+  "recent_deploys": {
+    "weygand-team": ["abc1234 — fix PWA scroll bug", "def5678 — hamburger nav"],
+    "MayAI": ["ghi9012 — MISSION-046 complete"]
+  },
+  "context_summary": "All apps green. Regrid token valid 351d. Last deploy: PWA scroll fix."
+}</code></pre>
+
+    <h3>Heartbeat format</h3>
+    <p>Every agent maintains a heartbeat file at <code>agents/[name]/heartbeat.json</code>. Updated at session close:</p>
+    <pre><code>{
+  "agent": "vulcan",
+  "last_active": "2026-03-01T22:00:00Z",
+  "sessions_active": 28,
+  "last_session_summary": "MISSION-046: WorkHQ mobile refresh — deployed to GitHub Pages"
+}</code></pre>
+
+    <h3>Defining a new agent</h3>
+    <p>To add a new agent to the system:</p>
+    <ol class="steps">
+      <li><strong>Create agent directory:</strong> <code>may-system/agents/[name]/</code></li>
+      <li><strong>Write prompt.md:</strong> Role definition, scope, how it reports results, what it can and cannot do</li>
+      <li><strong>Write config.json:</strong> Thresholds, targets, schedule, API endpoints it uses</li>
+      <li><strong>Initialize heartbeat.json:</strong> Set <code>last_active: null</code>, <code>sessions_active: 0</code></li>
+      <li><strong>Register in SOUL.md:</strong> Add to the subagent team table with role and schedule</li>
+      <li><strong>Add to MEMORY.md:</strong> Note the agent's domain and config file location</li>
+    </ol>
+  </section>
+
+  <!-- MISSIONS -->
+  <section id="missions">
+    <h2>Missions</h2>
+    <p class="section-intro">Missions are autonomous, headless Claude Code executions. They can build, test, fix, deploy, and iterate without the operator present — and they keep going until criteria pass or budget runs out.</p>
+
+    <h3>What a Mission is</h3>
+    <p>A Mission is a scoped objective written as a JSON spec. When launched, Claude Code runs headlessly (no interactive terminal) with full code and deploy authority. It reads the mission spec, plans its approach, builds the thing, tests it, fixes failures, deploys, verifies, and loops until all acceptance criteria pass.</p>
+    <p>The operator writes the spec. The operator presses go. The operator checks the result. That's the full interaction model for autonomous work.</p>
+
+    <h3>mission.json format</h3>
+    <pre><code>{
+  "mission_id": "MISSION-001",
+  "created_at": "2026-03-01T10:00:00Z",
+  "created_by": "may",
+  "status": "pending",           // pending | running | complete | failed
+  "priority": "high",            // high | medium | low
+  "agent": "vulcan",
+  "objective": "One-line description of what this mission accomplishes.",
+  "scope": {
+    "repos": ["[your-username]/[repo-name]"],
+    "deploy_targets": ["GitHub Pages"],
+    "authority": "code, commit, push, deploy to existing environments"
+  },
+  "acceptance_criteria": [
+    "Specific, testable criterion — pass/fail",
+    "Another criterion",
+    "Deployed URL is live and returns 200"
+  ],
+  "context_files": [
+    "/path/to/relevant/file.md"
+  ],
+  "additional_context": "Any extra instructions, design specs, constraints.",
+  "max_budget_usd": "5.00",
+  "max_turns": 200
+}</code></pre>
+
+    <h3>The self-healing loop</h3>
+    <div class="diagram">Plan       → Read existing code. Understand what's there.
+Build      → Write the code.
+Test       → Verify it works (build, run, check output).
+Fix        → If broken, diagnose and fix.
+Deploy     → Push to trigger deployment.
+Verify     → Check the live result (HTTP check, screenshot, etc.).
+Loop       → If any criteria still fail, go back to Build.</div>
+
+    <p>The loop continues until all acceptance criteria pass or the budget cap is reached. Each iteration tightens — the agent accumulates context about what worked and what didn't.</p>
+
+    <h3>Stuck protocol</h3>
+    <p>When a Mission hits something it can't resolve (missing API key, needs a decision from the operator, external dependency unavailable):</p>
+    <ol>
+      <li>Try an alternative approach first</li>
+      <li>If truly blocked: use a workaround — mock data, placeholder UI, TODO comment in code</li>
+      <li>Log every blocker to <code>needs-brian.md</code> in the mission directory</li>
+      <li>Keep moving — completion with workarounds beats incomplete</li>
+    </ol>
+    <pre><code>### Blocker: Cloudflare R2 bucket not configured
+Status: workaround in place
+What's needed: Create R2 bucket and set BUCKET_NAME env var
+Workaround used: File upload shows "Upload unavailable" message
+Files affected: workers/api/upload.js</code></pre>
+
+    <h3>result.md format</h3>
+    <pre><code># Mission Result: MISSION-001
+Completed: 2026-03-01T14:23:00Z
+
+## Status: complete
+
+## What Was Done
+- Built the dashboard component
+- Deployed to GitHub Pages (push to gh-pages branch)
+- All 4 acceptance criteria pass
+
+## Commits
+| Hash    | Message                              |
+|---------|--------------------------------------|
+| abc1234 | feat: initial dashboard scaffold     |
+| def5678 | fix: mobile layout breakpoints       |
+
+## Deployed To
+- https://[your-username].github.io/[repo-name]/
+
+## Workarounds In Place
+- None
+
+## Needs [Owner]
+- Nothing</code></pre>
+
+    <h3>Launch methods</h3>
+    <div class="table-wrap">
+      <table>
+        <tr>
+          <th>Method</th>
+          <th>Command</th>
+          <th>When to use</th>
+        </tr>
+        <tr>
+          <td><strong>Local batch (primary)</strong></td>
+          <td><code>nohup ./scripts/run-batch.sh MISSION-001 &</code></td>
+          <td>Default. Mac Studio + Max plan. Sequential, handles nesting protection.</td>
+        </tr>
+        <tr>
+          <td><strong>CI fallback</strong></td>
+          <td><code>./scripts/launch-mission.sh MISSION-001</code></td>
+          <td>When local Max plan sessions are exhausted. Commits + triggers GitHub Actions.</td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="callout warn">
+      <strong>Nesting warning:</strong> Never run <code>run-mission.sh</code> directly from inside a Claude Code session. The nested session protection will block it. Always use <code>run-batch.sh</code>, which unsets the <code>CLAUDECODE</code> environment variable before launching.
+    </div>
+
+    <h3>Mission authority</h3>
+    <p><strong>Missions can:</strong> read, write, delete files in scoped repos; git commit and push; run builds and tests; install dependencies; deploy to existing environments; make all implementation decisions.</p>
+    <p><strong>Missions cannot:</strong> spend money; send external communications; modify source-of-truth business data; deploy to new environments for the first time; delete repos or branches with others' work.</p>
+
+    <h3>When to use a Mission vs. direct session work</h3>
+    <div class="table-wrap">
+      <table>
+        <tr>
+          <th>Use a Mission when...</th>
+          <th>Do it in-session when...</th>
+        </tr>
+        <tr>
+          <td>Operator doesn't need to be present</td>
+          <td>Operator is steering interactively</td>
+        </tr>
+        <tr>
+          <td>Work takes more than 15–20 min</td>
+          <td>Quick fix, < 15 min of work</td>
+        </tr>
+        <tr>
+          <td>Multiple build/test/fix cycles expected</td>
+          <td>Single clear change with no iteration</td>
+        </tr>
+        <tr>
+          <td>Operator wants to do other things while it runs</td>
+          <td>Operator needs to review each step</td>
+        </tr>
+        <tr>
+          <td>Complex build with clear acceptance criteria</td>
+          <td>Discovery work, design decisions, research</td>
+        </tr>
+      </table>
+    </div>
+
+    <h3>Visual verification</h3>
+    <p>For missions with a UI component, visual verification is mandatory before declaring done:</p>
+    <pre><code># Take desktop screenshot
+node /path/to/MayAI/scripts/screenshot.js http://localhost:8080 desktop.png
+
+# Take mobile screenshot
+node /path/to/MayAI/scripts/screenshot.js http://localhost:8080 mobile.png --mobile
+
+# Screenshot live URL after deploy
+node /path/to/MayAI/scripts/screenshot.js https://[your-username].github.io/[repo] live.png</code></pre>
+  </section>
+
+  <!-- MEMORY & COLD START -->
+  <section id="memory">
+    <h2>Memory &amp; Cold Start</h2>
+    <p class="section-intro">Every session starts cold. The memory system makes that survivable — even advantageous. Fresh context loaded from well-maintained files outperforms stale conversational context every time.</p>
+
+    <h3>The cold start problem</h3>
+    <p>Claude Code has no persistent memory between sessions. Without intervention, each session would start knowing nothing: not what projects are active, not what decisions were already made, not what happened yesterday, not what broke last week. A chief of staff who forgets everything overnight is useless.</p>
+
+    <h3>The solution: structured file protocol</h3>
+    <p>Instead of fighting the ephemeral model, the May Framework embraces it. Every important piece of operational knowledge is written to a file at the moment it's created. Startup reads those files in order. The session starts fully informed.</p>
+
+    <h3>File roles and stability</h3>
+    <div class="table-wrap">
+      <table>
+        <tr>
+          <th>File</th>
+          <th>Role</th>
+          <th>Update Frequency</th>
+          <th>Written By</th>
+        </tr>
+        <tr>
+          <td><code>SOUL.md</code></td>
+          <td>Identity, operating principles, hard limits, agent team</td>
+          <td>Rarely (major system changes only)</td>
+          <td>Operator</td>
+        </tr>
+        <tr>
+          <td><code>USER.md</code></td>
+          <td>Operator preferences, context, autonomy rules</td>
+          <td>When preferences change</td>
+          <td>Operator</td>
+        </tr>
+        <tr>
+          <td><code>MEMORY.md</code></td>
+          <td>Active projects, long-term knowledge, open loops, decisions</td>
+          <td>Every session (append/update)</td>
+          <td>May during sessions</td>
+        </tr>
+        <tr>
+          <td><code>DAILY.md</code></td>
+          <td>Yesterday's context, today's priorities, open items</td>
+          <td>Daily (replaced, not appended)</td>
+          <td>May at session close</td>
+        </tr>
+        <tr>
+          <td><code>PLAYBOOK.md</code></td>
+          <td>Situational response patterns for common scenarios</td>
+          <td>Rarely (stable patterns)</td>
+          <td>Operator</td>
+        </tr>
+        <tr>
+          <td><code>session.md</code></td>
+          <td>Current session state — goals, commits, decisions, resume instructions</td>
+          <td>Every session (overwritten at close)</td>
+          <td>Scribe protocol</td>
+        </tr>
+        <tr>
+          <td><code>decisions.md</code></td>
+          <td>Persistent decision log — never re-ask these</td>
+          <td>Append-only (never overwritten)</td>
+          <td>May when decisions are made</td>
+        </tr>
+        <tr>
+          <td><code>projects.md</code></td>
+          <td>Project lifecycle tracker — phase, milestones, next actions</td>
+          <td>When projects advance</td>
+          <td>May during sessions</td>
+        </tr>
+      </table>
+    </div>
+
+    <h3>The Scribe protocol</h3>
+    <p>Scribe is an inline protocol — not a separate agent — that May executes at session boundaries. It's what makes the next cold start informed.</p>
+
+    <h4>Trigger points</h4>
+    <ul>
+      <li><strong>Session open:</strong> Read session.md from last session. Initialize goals from operator's first message or carryover.</li>
+      <li><strong>After git commit:</strong> Append commit hash + message to session.md Git Activity. Update goal progress.</li>
+      <li><strong>After git push:</strong> Log push (branch, remote) to session.md.</li>
+      <li><strong>Goal completed:</strong> Mark done with timestamp. Note follow-up goals.</li>
+      <li><strong>Decision made:</strong> Capture decision + implications. Append to decisions.md. Update session.md.</li>
+      <li><strong>Session close:</strong> Write final session.md. Append summary to sessions.md (archive). Update DAILY.md. Update agent heartbeats.</li>
+    </ul>
+
+    <h4>session.md structure</h4>
+    <pre><code># Session State
+Date: 2026-03-01
+Session: afternoon
+
+## Current Goals
+- [x] Fix PWA scroll bug — done
+- [ ] Write SYSTEM.md update — in progress
+
+## Git Activity
+- abc1234 — fix: PWA iOS scroll behavior (weygand-team)
+- def5678 — fix: bottom gap on keyboard close (weygand-team)
+
+## Decisions Made
+- VAPID keys: do not regenerate (would break existing subscriptions)
+
+## Resume Instructions
+Working on May PWA improvements. Scroll bug fixed and deployed.
+Next: update SYSTEM.md docs with PWA features. Then write MISSION-047 spec.
+All changes in weygand-team repo, deployed to Cloudflare Pages.
+May PWA URL: https://[your-domain]/may/</code></pre>
+
+    <div class="callout">
+      <strong>Resume Instructions is the most important section.</strong>
+      Write it as a cold-start briefing — assume the next session knows the codebase but has zero context on what happened today. It should answer: "where exactly were we, what exactly were we doing, what's the very next step?"
+    </div>
+
+    <h3>MEMORY.md discipline</h3>
+    <p>MEMORY.md auto-loads but truncates at 200 lines. Enforce this strictly:</p>
+    <ul>
+      <li>Keep MEMORY.md as an index — one to three sentences per project, then "See [topic.md]"</li>
+      <li>Extract detailed technical notes to topic files as soon as a section grows beyond 5–6 lines</li>
+      <li>Prune resolved items from Open Loops; archive closed projects</li>
+      <li>Never let MEMORY.md exceed 200 lines — truncation means the bottom half of the file is silently lost</li>
+    </ul>
+
+    <h3>decisions.md discipline</h3>
+    <p>Every decision the operator makes gets logged here, immediately, with context:</p>
+    <pre><code>## 2026-03-01
+**VAPID keys:** Do not regenerate — would break all existing push subscriptions.
+**Context:** PWA push notifications live; keys stored as Cloudflare Pages secrets.
+
+**Missions/Status drawer:** Permanent — Chat is always the default view.
+**Context:** Confirmed in MISSION-045 session.</code></pre>
+    <p>This file is append-only. Never delete entries. It's the institutional memory that prevents the operator from being asked the same question twice.</p>
+
+    <h3>The sessions.md archive</h3>
+    <p>Before overwriting session.md at session close, Scribe appends a summary to sessions.md. This is an append-only cumulative record of everything accomplished:</p>
+    <pre><code>## 2026-03-01 — Afternoon session
+Duration: ~2h
+Goals completed: PWA scroll bug fix, receipt persistence, relative timestamps
+Commits: abc1234, def5678
+Deployed: weygand-team (Cloudflare Pages)
+Key decisions: VAPID keys permanent, drawer nav permanent
+Next: MISSION-047 system documentation</code></pre>
+  </section>
+
+  <!-- AUTONOMY MODEL -->
+  <section id="autonomy">
+    <h2>Autonomy Model</h2>
+    <p class="section-intro">The permission model is binary and clear. Most actions are auto-approved. A short list of consequential actions requires confirmation. The rule of thumb is simple enough to apply in any situation.</p>
+
+    <h3>The rule of thumb</h3>
+    <div class="callout">
+      <strong>"If it doesn't spend money or send information to someone else, just do it."</strong>
+      Any action that is local, reversible, and doesn't involve external communication or financial commitment is auto-approved.
+    </div>
+
+    <h3>Auto-approve: just do it</h3>
+    <ul>
+      <li>All code decisions within a scoped plan (architecture, naming, structure, libraries, refactoring)</li>
+      <li>File creation, modification, deletion within project repos</li>
+      <li>Git commits and pushes to existing repos and branches</li>
+      <li>Running builds, tests, dev servers, linters</li>
+      <li>API reads (any external API — read operations only)</li>
+      <li>Research, drafting, formatting, summarizing</li>
+      <li>Installing dependencies, updating configs</li>
+      <li>Creating/updating system files (MEMORY, DAILY, broker tasks, heartbeats)</li>
+      <li>Deploying to existing environments (GitHub Pages, Cloudflare Pages)</li>
+    </ul>
+
+    <h3>Confirm before doing</h3>
+    <ul>
+      <li>Spending money (API upgrades, paid services, new infrastructure)</li>
+      <li>Sending external communications (emails, Slack, PR comments visible to others)</li>
+      <li>Modifying source-of-truth business data (Monday.com items, Clockify entries)</li>
+      <li>First-time deployment to a new environment</li>
+      <li>Deleting a repo, branch, or production data</li>
+      <li>Any action touching financial records or sensitive documents</li>
+      <li>Actions that cannot be undone</li>
+    </ul>
+
+    <h3>Scoped plan execution</h3>
+    <p>Once the operator scopes a plan — "build X", "fix Y", "add Z" — the AI executes the full plan without asking for approval on implementation details. This is critical for avoiding "permission fatigue" where constant confirmation requests train the operator to rubber-stamp everything.</p>
+    <p>The AI surfaces decisions only when there's a genuine trade-off the operator would care about: a significant performance vs. complexity tradeoff, a choice between mutually exclusive approaches, or an ambiguity that could result in building the wrong thing.</p>
+
+    <h3>Decision logging as trust infrastructure</h3>
+    <p>Every time the operator makes a decision, it's logged to <code>decisions.md</code> with context. This creates a trust layer: the AI doesn't need to ask the same question twice, and the operator doesn't need to worry about consistent behavior across sessions.</p>
+    <p>Examples of decisions worth logging:</p>
+    <ul>
+      <li>Threshold values ("flag overdue after 7 days, not 3")</li>
+      <li>Data source preferences ("county GIS first, external API as fallback")</li>
+      <li>Autonomy grants ("auto-approve all commits to this repo")</li>
+      <li>Architecture choices ("use vanilla JS, no frameworks")</li>
+      <li>External communication policies ("never email without confirmation")</li>
+    </ul>
+
+    <h3>Minimizing permission requests</h3>
+    <p>A key design goal: the operator should never have to approve routine actions. Permission prompts for file reads, git operations, and local actions create friction and distract from the actual work. The system is calibrated to prompt only when the stakes are genuinely high.</p>
+    <p>If the AI is prompting too often, the fix is to update <code>USER.md</code> or <code>CLAUDE.md</code> with explicit auto-approve grants for the action type in question.</p>
+  </section>
+
+  <!-- TOOLING -->
+  <section id="tooling">
+    <h2>Tooling</h2>
+    <p class="section-intro">The system uses Claude Code as its runtime, GitHub for version control and CI, and Cloudflare for edge hosting and APIs. All of it runs on free or low-cost tiers.</p>
+
+    <h3>Claude Code CLI</h3>
+    <p>The runtime for all AI sessions — both interactive and headless.</p>
+    <pre><code># Interactive session (operator present)
+claude
+
+# Headless mission (no operator, autonomous)
+claude -p "$PROMPT" \
+  --dangerously-skip-permissions \
+  --max-turns 200 \
+  --output-format text</code></pre>
+    <p>Key flags for mission execution:</p>
+    <ul>
+      <li><code>-p "$PROMPT"</code> — pass the mission spec as a prompt (non-interactive)</li>
+      <li><code>--dangerously-skip-permissions</code> — skip confirmation prompts (required for autonomous execution)</li>
+      <li><code>--max-turns N</code> — limit agentic turns to control cost</li>
+      <li><code>--output-format text</code> — plain text output (no streaming JSON)</li>
+    </ul>
+
+    <h3>run-batch.sh — local mission launcher</h3>
+    <p>The primary way to launch missions locally. Handles the nesting problem (Claude Code sessions can't spawn nested Claude Code sessions):</p>
+    <pre><code>#!/bin/bash
+# run-batch.sh MISSION-001 MISSION-002 ...
+
+unset CLAUDECODE          # Remove nesting protection
+unset CLAUDE_CODE_SESSION
+
+for MISSION_ID in "$@"; do
+  MISSION_DIR="missions/$MISSION_ID"
+  PROMPT=$(cat "$MISSION_DIR/mission.json" | jq -r .objective)
+
+  claude -p "$PROMPT" \
+    --dangerously-skip-permissions \
+    --max-turns 200 \
+    --output-format text
+done</code></pre>
+    <p>Launch in background to keep working: <code>nohup ./scripts/run-batch.sh MISSION-001 &amp;</code></p>
+    <p>Monitor: <code>tail -f ~/may-system/logs/missions/batch-*.log</code></p>
+
+    <h3>GitHub Actions — mission runner</h3>
+    <p>CI fallback for when local sessions are unavailable. The <code>mission.yml</code> workflow:</p>
+    <pre><code>name: Run Mission
+on:
+  workflow_dispatch:
+    inputs:
+      mission_id:
+        description: 'Mission ID (e.g. MISSION-001)'
+        required: true
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run mission
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          MISSION="${{ github.event.inputs.mission_id }}"
+          PROMPT=$(cat "missions/$MISSION/mission.json")
+          claude -p "$PROMPT" --dangerously-skip-permissions --max-turns 200
+      - name: Commit results
+        run: |
+          git config user.email "may@[your-domain]"
+          git config user.name "May"
+          git add missions/
+          git commit -m "Mission $MISSION complete" || exit 0
+          git push</code></pre>
+
+    <h3>Sentinel — daily health checks</h3>
+    <p>Sentinel runs on a daily cron via GitHub Actions. It checks all deployed apps, verifies API tokens haven't expired, and commits a result JSON back to the repo:</p>
+    <pre><code>schedule:
+  - cron: '15 13 * * *'  # 7:15 AM CT daily</code></pre>
+    <p>Sentinel output (<code>broker/results/sentinel-latest.json</code>) is read at every session's Brief Startup to give fresh context about deployment health and recent commits.</p>
+
+    <h3>may-pwa-reply.sh — PWA reply channel</h3>
+    <p>When Claude responds to a message received via the PWA, this script writes the response to Cloudflare D1 and triggers a push notification:</p>
+    <pre><code>#!/bin/bash
+# may-pwa-reply.sh "$RESPONSE_TEXT"
+# Called by email responder after Claude generates a reply
+
+RESPONSE="$1"
+TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+# Write to D1 outbound table
+curl -X POST "https://[worker-name].[account].workers.dev/api/message" \
+  -H "Authorization: Bearer $WORKER_SECRET" \
+  -H "Content-Type: application/json" \
+  -d "{\"role\":\"may\",\"content\":\"$RESPONSE\",\"ts\":\"$TIMESTAMP\"}"
+
+# Trigger push notification
+curl -X POST "https://[your-domain]/api/push-notify" \
+  -H "Content-Type: application/json" \
+  -d "{\"title\":\"May\",\"body\":\"New message\"}"</code></pre>
+
+    <h3>The May PWA</h3>
+    <p>A progressive web app that serves as the primary async communication channel between operator and AI chief of staff.</p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>Feature</th><th>Implementation</th></tr>
+        <tr><td>Chat storage</td><td>Cloudflare D1 (SQLite at edge)</td></tr>
+        <tr><td>Push notifications</td><td>VAPID (Web Push Protocol), Cloudflare Pages Functions</td></tr>
+        <tr><td>File attachments</td><td>Cloudflare R2 bucket</td></tr>
+        <tr><td>Nav</td><td>Hamburger/drawer — Chat default, Missions + Status in drawer</td></tr>
+        <tr><td>Receipt persistence</td><td>localStorage — survives page refresh</td></tr>
+        <tr><td>Timestamps</td><td>Relative ("2 min ago") — updates every 60s</td></tr>
+        <tr><td>SW cache versioning</td><td>Increment version string (e.g. may-v7 → may-v8) on JS changes</td></tr>
+        <tr><td>iOS push</td><td>Requires home screen install (Safari → Share → Add to Home Screen)</td></tr>
+      </table>
+    </div>
+
+    <div class="callout warn">
+      <strong>VAPID key warning:</strong> Once VAPID keys are generated and stored as secrets, do not regenerate them. Regenerating breaks all existing push subscriptions. Generate once, store permanently.
+    </div>
+
+    <h3>Monday.com MCP</h3>
+    <p>Atlas uses the Monday.com Model Context Protocol (MCP) server for reading board data. This enables natural-language queries against Monday.com during interactive sessions:</p>
+    <ul>
+      <li>Read board items, statuses, column values</li>
+      <li>Filter by status, date, assignee</li>
+      <li>Drill into subitems (where invoice/payment data lives)</li>
+    </ul>
+    <p><strong>Known limitation:</strong> Mirror and formula columns are unreadable via the MCP API. Dollar amounts on parent items require drilling into subitems. Design queries around this constraint.</p>
+
+    <h3>Cloudflare Workers — API proxy pattern</h3>
+    <p>Cloudflare Workers serve as the backend for all apps that need server-side logic. Common patterns:</p>
+    <ul>
+      <li><strong>API proxy:</strong> Worker holds API keys; frontend calls worker; worker calls external API. Keys never exposed in client-side code.</li>
+      <li><strong>Auth:</strong> Worker generates magic link JWT, validates JWT on subsequent requests, returns 401 for unauthenticated access.</li>
+      <li><strong>Email routing:</strong> Worker receives inbound email via Cloudflare Email, parses it, routes to appropriate handler (D1 write for PWA, email forward for standard).</li>
+    </ul>
+
+    <h3>GitHub Pages — zero-cost frontend hosting</h3>
+    <p>All static frontends deploy to GitHub Pages via GitHub Actions. The deploy pattern:</p>
+    <pre><code>- uses: peaceiris/actions-gh-pages@v3
+  with:
+    github_token: ${{ secrets.GITHUB_TOKEN }}
+    publish_dir: ./dist          # or ./ for plain HTML
+    publish_branch: gh-pages</code></pre>
+
+    <h3>Broker queue (legacy reference)</h3>
+    <p>The broker queue (<code>broker/tasks/</code> and <code>broker/results/</code>) was the original agent communication mechanism. It's now effectively retired — Missions are the execution model for autonomous work. The queue pattern remains in the codebase for reference and potential future use with standalone agents.</p>
+    <p>Format for a broker task JSON:</p>
+    <pre><code>{
+  "task_id": "TASK-001",
+  "created_at": "2026-03-01T10:00:00Z",
+  "agent": "atlas",
+  "type": "board_scan",
+  "params": {
+    "board_id": "[board-id]",
+    "filter": "AR_pipeline"
+  },
+  "priority": "high"
+}</code></pre>
+  </section>
+
+  <!-- RULE SETS -->
+  <section id="rule-sets">
+    <h2>Rule Sets</h2>
+    <p class="section-intro">Three files define how the AI operates: SOUL.md (identity), CLAUDE.md (startup and rules), and PLAYBOOK.md (situational responses). Together they replace a complex system prompt with human-readable governance files.</p>
+
+    <h3>SOUL.md — identity and principles</h3>
+    <p>The identity file. Defines who the AI is, how it thinks, what it cares about, and what it will never do. This is the most durable file in the system — it rarely changes.</p>
+
+    <h4>Recommended sections</h4>
+    <ul>
+      <li><strong>Identity:</strong> Name, role, who it serves, the two-sentence version of what it is</li>
+      <li><strong>How it thinks:</strong> Triage approach, data vs. narrative preference, action vs. discussion default</li>
+      <li><strong>Operating posture:</strong> Monitor → Analyze → Act (or Confirm). What triggers confirmation.</li>
+      <li><strong>Domain knowledge:</strong> What the AI knows about your business (can reference MEMORY.md for details)</li>
+      <li><strong>Startup sequence:</strong> Ordered list of files to read (mirrors CLAUDE.md)</li>
+      <li><strong>Subagent team:</strong> Table of agents, roles, schedules</li>
+      <li><strong>Communication style:</strong> Tone, format preferences, what to never say</li>
+      <li><strong>Hard limits:</strong> Short list of things this AI never does, ever</li>
+    </ul>
+
+    <h4>SOUL.md skeleton</h4>
+    <pre><code># [Name] — Chief of Staff
+## [Company] | [Entity]
+
+## Identity
+You are [Name]. You are [Owner]'s chief of staff across [domains].
+You are not an assistant. You are an operator. You manage systems, not conversations.
+
+## How [Name] Thinks
+- Triage before responding. [Routing logic for different request types]
+- Numbers over narratives. Lead with data.
+- Action over discussion. Default to doing or delegating.
+
+## Operating Posture
+Auto-approve: [list]
+Confirm before: [list]
+
+## Domain Knowledge
+### [Primary Business]
+[Core facts the AI needs to know — Monday.com, Clockify, key services]
+
+### [Secondary Domain]
+[Core facts]
+
+## Subagent Team
+| Agent | Role | Schedule |
+|-------|------|----------|
+| Vulcan | Code | On-demand |
+| Atlas | [Tool] monitoring | Every 2h |
+
+## Communication Style
+- Direct. No filler phrases.
+- Lead with the answer.
+- [Other style rules]
+
+## Hard Limits
+[Name] never:
+- Sends external communications without explicit confirmation
+- Modifies source-of-truth business data without explicit confirmation
+- Spends money without confirmation</code></pre>
+
+    <h3>CLAUDE.md — startup and rules</h3>
+    <p>Claude Code reads this file automatically when launched in the repo directory. It's the entry point for the entire system.</p>
+
+    <h4>Recommended sections</h4>
+    <ul>
+      <li><strong>You Are [Name]:</strong> One-paragraph reminder of identity (brief — SOUL.md has the full version)</li>
+      <li><strong>Read these files:</strong> Ordered list of files to read before doing anything else</li>
+      <li><strong>After reading:</strong> What to do (deliver brief, check date, etc.)</li>
+      <li><strong>System paths:</strong> Absolute paths for broker, logs, state, agents (eliminates path confusion)</li>
+      <li><strong>Hard rules:</strong> Non-negotiable behaviors (archive before overwrite, record decisions, ask one clarifying question)</li>
+      <li><strong>Autonomy rules:</strong> Auto-approve list and confirm-before list</li>
+      <li><strong>Missions section:</strong> How missions work in this system</li>
+    </ul>
+
+    <h4>CLAUDE.md skeleton</h4>
+    <pre><code># CLAUDE.md — [Name] Startup Instructions
+
+## You Are [Name]
+Read the following files immediately, in this order, before doing anything else:
+1. `SOUL.md` — identity and operating principles
+2. `USER.md` — [Owner]'s preferences and context
+3. `MEMORY.md` — active projects and long-term knowledge
+4. `DAILY.md` — yesterday's context and today's priorities
+5. `PLAYBOOK.md` — how to respond to common situations
+6. `/path/to/may-system/state/session.md` — last session state
+7. `/path/to/may-system/state/projects.md` — project phases
+8. `/path/to/may-system/logs/decisions.md` — persistent decisions
+
+After reading all files, deliver the appropriate brief:
+- Today's date ≠ DAILY.md date → **Daily Brief**
+- Same day → **Launch Brief**
+
+## System Paths
+- Broker tasks: /path/to/may-system/broker/tasks/
+- State: /path/to/may-system/state/
+- Logs: /path/to/may-system/logs/
+
+## Hard Rules
+- Never steer a subagent mid-session — write to broker queue only
+- At session close: archive session, update heartbeats, update DAILY.md
+- Record decisions in logs/decisions.md — never re-ask a resolved question
+
+## Autonomy Rules
+Auto-approve: [list]
+Confirm: [list]
+
+## Missions
+[Mission spec and launch instructions]</code></pre>
+
+    <h3>PLAYBOOK.md — situational response patterns</h3>
+    <p>A lightweight rulebook for common situations. Formatted as <code>## "[trigger phrase]"</code> sections with arrow-formatted action bullets.</p>
+    <p>Effective PLAYBOOK.md entries are:</p>
+    <ul>
+      <li>Trigger-based (starts with a phrase pattern)</li>
+      <li>Action-oriented (arrows pointing to specific steps)</li>
+      <li>Referencing specific files and paths, not abstract concepts</li>
+      <li>Short enough to scan in 30 seconds</li>
+    </ul>
+
+    <h4>Example entries</h4>
+    <pre><code>## "What's going on" / "Status"
+→ Executive summary: top 3 priorities, any agent alerts, one open loop overdue
+→ Do NOT list every project. Surface what needs [Owner].
+
+## "Build [tool]" (operator present)
+→ If [Owner] is steering interactively, build it directly in the session
+→ For deferred work, create a mission spec and offer to launch it
+
+## "Mission: [objective]"
+→ Create mission.json in missions/MISSION-XXX/
+→ Tell [Owner]: "Mission MISSION-XXX ready. Run: ./scripts/run-batch.sh MISSION-XXX"
+→ Or if [Owner] says "go" — launch it directly in background
+
+## Brief Startup (MANDATORY — before every brief)
+→ git pull origin main in repo
+→ Read pending-brief.md
+→ Read sentinel-latest.json
+→ Scan missions/* for newly completed
+→ Read result.md + needs-brian.md for completed missions</code></pre>
+
+    <h3>Writing effective identity files</h3>
+    <p>The most common mistake: writing identity files that describe the AI's capabilities rather than its operating posture. Good identity files define behavior, not features.</p>
+    <div class="callout info">
+      <strong>Test your SOUL.md:</strong> Read it as the AI would — cold, with no other context. Ask: "After reading only this file, would I know what to do when [Owner] types 'what's going on'?" If not, the file needs more behavioral specificity.
+    </div>
+    <p>Effective techniques:</p>
+    <ul>
+      <li><strong>Be direct.</strong> "You are not an assistant. You are an operator." is clearer than "You should try to be helpful in an operator-like way."</li>
+      <li><strong>Name the anti-patterns.</strong> "Never say 'Great question.' Never say 'Certainly.'" prevents the most common AI communication filler.</li>
+      <li><strong>Specify routing logic.</strong> "Before answering anything, determine: is this a status question, a decision request, a task to delegate, or a problem to solve?"</li>
+      <li><strong>Hard limits are non-negotiable.</strong> The hard limits list should be short (5–7 items) and absolute — no hedging.</li>
+    </ul>
+  </section>
+
+  <!-- GETTING STARTED -->
+  <section id="getting-started">
+    <h2>Getting Started</h2>
+    <p class="section-intro">A step-by-step path for setting up a May-style AI Chief of Staff from scratch. Estimated setup time for a basic working system: 2–3 hours.</p>
+
+    <h3>Prerequisites</h3>
+    <ul>
+      <li><strong>Claude Code CLI:</strong> Install from <a href="https://claude.ai/code" style="color:var(--gold)">claude.ai/code</a>. Active subscription required (Max plan recommended for heavy use).</li>
+      <li><strong>GitHub account:</strong> Free tier works. Repos can be private.</li>
+      <li><strong>Cloudflare account:</strong> Free tier works for Workers, Pages, D1, R2.</li>
+      <li><strong>Basic familiarity with:</strong> git, bash scripting, JSON. You don't need to be a developer — the AI writes the code.</li>
+    </ul>
+
+    <div class="callout info">
+      <strong>The most important prerequisite is mental:</strong> You're building a system, not using a tool. Investing 2–3 hours in setup pays dividends across thousands of future interactions. The quality of your identity files (especially SOUL.md) determines the quality of everything that follows.
+    </div>
+
+    <h3>Step-by-step setup</h3>
+    <ol class="steps">
+      <li>
+        <strong>Create the repo and local state directories</strong>
+        <pre><code># Create the versioned repo
+gh repo create [your-username]/[ai-name] --private
+
+# Create local state (not in git)
+mkdir -p ~/[ai-name]-system/{state,logs/missions,agents/may,broker/{tasks,results,drafts}}</code></pre>
+      </li>
+      <li>
+        <strong>Write SOUL.md — the most important step</strong>
+        <p>Use the skeleton from the Rule Sets section. Fill in:</p>
+        <ul>
+          <li>Your AI's name and role</li>
+          <li>How it should think (triage, data-first, action-default)</li>
+          <li>What it should auto-approve vs. confirm</li>
+          <li>2–3 sentences about each domain it needs to know about</li>
+          <li>Hard limits (what it should never do)</li>
+        </ul>
+        <p>This file is the foundation. Take your time on it.</p>
+      </li>
+      <li>
+        <strong>Write USER.md</strong>
+        <p>Your preferences as the operator. Include:</p>
+        <ul>
+          <li>Communication style (bullet-heavy vs. prose, detail level)</li>
+          <li>Tech preferences (tools you use, tools you avoid)</li>
+          <li>Autonomy grants (what it can do without asking)</li>
+          <li>Context about your business/domain that doesn't belong in SOUL.md</li>
+        </ul>
+      </li>
+      <li>
+        <strong>Write MEMORY.md (initial version)</strong>
+        <p>Start simple. List your active projects with one paragraph each. Add known open loops. Add decisions that are already made. This file grows organically — don't try to capture everything upfront.</p>
+      </li>
+      <li>
+        <strong>Write DAILY.md (initial version)</strong>
+        <p>Today's date as the header. Your current priorities. This file gets replaced daily — the initial version just needs to be good enough for the first session.</p>
+      </li>
+      <li>
+        <strong>Write PLAYBOOK.md</strong>
+        <p>Start with the essential patterns: "what's going on", "build X", "check on [tool]", Brief Startup protocol, Scribe triggers. Add more as you discover recurring situations.</p>
+      </li>
+      <li>
+        <strong>Write CLAUDE.md</strong>
+        <p>Use the skeleton from the Rule Sets section. Set absolute paths for your local state directory. List the files to read in order. Define autonomy rules. Add mission section if you plan to use missions.</p>
+      </li>
+      <li>
+        <strong>Run your first session and deliver a brief</strong>
+        <pre><code>cd ~/[ai-name]   # repo directory
+claude</code></pre>
+        <p>The AI reads your files and delivers a Daily Brief. Evaluate: does it sound like it understands your business? Does the brief surface the right priorities? If not, iterate on SOUL.md and MEMORY.md.</p>
+      </li>
+      <li>
+        <strong>Write your first mission spec</strong>
+        <p>Pick something concrete and scoped — a dashboard, a script, a static site. Write the mission.json with clear acceptance criteria. Launch it with <code>run-batch.sh</code>. Check <code>result.md</code> when done.</p>
+      </li>
+      <li>
+        <strong>Set up Sentinel</strong>
+        <p>Create a GitHub Actions workflow that runs daily and checks your deployed apps. Have it write a JSON result to the repo. Point your session startup to read that JSON. This closes the loop on knowing what's deployed and healthy without checking manually.</p>
+      </li>
+    </ol>
+
+    <h3>Common pitfalls and how to avoid them</h3>
+    <div class="table-wrap">
+      <table>
+        <tr>
+          <th>Pitfall</th>
+          <th>What happens</th>
+          <th>Fix</th>
+        </tr>
+        <tr>
+          <td>MEMORY.md over 200 lines</td>
+          <td>Context truncation silently loses the bottom half of the file</td>
+          <td>Extract to topic files aggressively. Keep MEMORY.md as an index.</td>
+        </tr>
+        <tr>
+          <td>session.md not archived before overwrite</td>
+          <td>That session's work is permanently lost from the record</td>
+          <td>Scribe protocol: always append to sessions.md before overwriting session.md</td>
+        </tr>
+        <tr>
+          <td>DAILY.md not updated at session close</td>
+          <td>Next session starts with stale context; operator re-explains what happened</td>
+          <td>Make DAILY.md update a hard rule in CLAUDE.md: "At session close, update DAILY.md"</td>
+        </tr>
+        <tr>
+          <td>Decisions not logged</td>
+          <td>Same questions re-asked across sessions; operator frustrated; AI seems to not learn</td>
+          <td>Log to decisions.md immediately. Treat it as append-only institutional memory.</td>
+        </tr>
+        <tr>
+          <td>Running missions inside Claude Code</td>
+          <td>Nested session protection blocks execution</td>
+          <td>Always use run-batch.sh (which unsets CLAUDECODE) instead of run-mission.sh directly</td>
+        </tr>
+        <tr>
+          <td>Brief Startup skipped</td>
+          <td>Brief reports stale data; completed missions not surfaced; Sentinel results missing</td>
+          <td>Make Brief Startup mandatory in CLAUDE.md and PLAYBOOK.md. No exceptions.</td>
+        </tr>
+        <tr>
+          <td>Vague acceptance criteria in missions</td>
+          <td>Mission completes "technically" but doesn't meet actual needs</td>
+          <td>Write criteria as pass/fail tests: "Page loads at URL X and returns 200". Not "works well".</td>
+        </tr>
+        <tr>
+          <td>Permission fatigue</td>
+          <td>Operator approves everything without reading; autonomy model breaks down</td>
+          <td>Add more actions to the auto-approve list. The confirm list should be short and meaningful.</td>
+        </tr>
+      </table>
+    </div>
+
+    <h3>Tips for long-term operation</h3>
+    <ul>
+      <li><strong>Review MEMORY.md weekly.</strong> Prune resolved open loops. Archive closed projects. Add new domains as they emerge.</li>
+      <li><strong>Run Sentinel before trusting a brief.</strong> If Sentinel hasn't run in 24+ hours, the health data may be stale.</li>
+      <li><strong>Treat needs-brian.md as your inbox.</strong> After any mission completes, read its needs-brian.md before moving on.</li>
+      <li><strong>Log decisions immediately.</strong> The moment a decision is made — in any session — log it. Don't batch them up.</li>
+      <li><strong>Write clear mission specs, not vague goals.</strong> "Build a dashboard showing X, Y, Z data with filters for A and B, deployed to GitHub Pages, all criteria passing" is a mission. "Improve the dashboard" is not.</li>
+      <li><strong>Let missions fail loudly.</strong> If a mission can't meet criteria, it should say so in result.md. A partial result with clear blockers is better than silent failure.</li>
+      <li><strong>Update SOUL.md as you learn.</strong> The first version of your identity files won't be perfect. Iterate. Add communication style rules as you notice patterns. Tighten the autonomy lists as you build trust.</li>
+    </ul>
+
+    <h3>Scaling up</h3>
+    <p>Once the core system works, common growth paths:</p>
+    <ul>
+      <li><strong>Add Sentinel</strong> → automated health monitoring, deploy verification, token expiry alerts</li>
+      <li><strong>Add a PWA</strong> → async communication channel (Claude responds even when you're not at a terminal)</li>
+      <li><strong>Add email routing</strong> → Cloudflare Email + Workers → Claude responds to emails autonomously</li>
+      <li><strong>Add Monday.com MCP</strong> → natural-language queries against project management data during sessions</li>
+      <li><strong>Scale missions</strong> → batch launch multiple missions in parallel, each scoped to a different repo/feature</li>
+    </ul>
+  </section>
+
+</main>
+
+<script>
+  function toggleNav() {
+    document.getElementById('sidebar').classList.toggle('open');
+  }
+
+  // Close sidebar when clicking a nav link on mobile
+  document.querySelectorAll('nav a').forEach(link => {
+    link.addEventListener('click', () => {
+      if (window.innerWidth <= 768) {
+        document.getElementById('sidebar').classList.remove('open');
+      }
+    });
+  });
+
+  // Close sidebar when clicking outside on mobile
+  document.querySelector('main').addEventListener('click', () => {
+    if (window.innerWidth <= 768) {
+      document.getElementById('sidebar').classList.remove('open');
+    }
+  });
+
+  // Highlight active nav section on scroll
+  const sections = document.querySelectorAll('section[id]');
+  const navLinks = document.querySelectorAll('nav a');
+
+  function updateActiveNav() {
+    const scrollY = window.scrollY + 80;
+    sections.forEach(section => {
+      const top = section.offsetTop;
+      const height = section.offsetHeight;
+      if (scrollY >= top && scrollY < top + height) {
+        navLinks.forEach(link => {
+          link.classList.remove('active');
+          if (link.getAttribute('href') === '#' + section.id) {
+            link.classList.add('active');
+          }
+        });
+      }
+    });
+  }
+
+  window.addEventListener('scroll', updateActiveNav, { passive: true });
+  updateActiveNav();
+</script>
+</body>
+</html>
